@@ -810,3 +810,123 @@ body {
     padding-top: 16px;
     margin-top: 8px;
 }
+
+/* --- スマートフォン・モバイル最適化 (Smartphone Optimization) --- */
+@media (max-width: 800px) {
+    body {
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+    
+    .app-container {
+        flex-direction: column;
+        height: auto;
+        padding: 6px;
+        gap: 8px;
+        margin-bottom: 150px; /* Space for the stacked bottom player */
+    }
+
+    .sidebar-panel {
+        width: 100%;
+        gap: 6px;
+        flex-shrink: 1;
+    }
+
+    .main-view-panel {
+        width: 100%;
+        height: auto;
+        min-height: 450px;
+        overflow-y: visible;
+    }
+
+    .playlist-header-banner {
+        grid-template-columns: 1fr;
+        padding: 16px;
+        gap: 16px;
+        text-align: center;
+    }
+
+    .playlist-header-cover {
+        width: 100px;
+        height: 100px;
+        margin: 0 auto;
+    }
+
+    .vfd-visualizer-window {
+        width: 100%;
+        max-width: 280px;
+        height: 60px;
+        margin: 0 auto;
+    }
+
+    /* Scrollable track table to keep all columns without breaking screen bounds */
+    .tracks-list-container {
+        padding: 8px 4px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .clean-table {
+        min-width: 600px; /* Force minimum table width to preserve all columns nicely */
+    }
+    
+    .clean-table th, .clean-table td {
+        padding: 8px 6px;
+        font-size: 0.75rem;
+    }
+
+    /* Stack bottom player for smartphone screen widths while keeping ALL controls visible */
+    .bottom-player-deck {
+        height: auto;
+        min-height: 130px;
+        padding: 12px;
+        flex-direction: column;
+        gap: 10px;
+        justify-content: center;
+    }
+
+    .player-left-zone {
+        width: 100%;
+        justify-content: space-between;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        padding-bottom: 8px;
+    }
+
+    .now-playing-details {
+        max-width: 60%;
+    }
+
+    .tactical-status-indicator {
+        border-left: none;
+        padding-left: 0;
+    }
+
+    .player-center-zone {
+        width: 100%;
+        gap: 8px;
+    }
+
+    .player-right-zone {
+        width: 100%;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.02);
+        padding: 6px 12px;
+        border-radius: 4px;
+    }
+
+    .gain-controller {
+        display: flex; /* Kept visible for smartphone users */
+        flex: 1;
+        justify-content: flex-start;
+    }
+
+    .slider-clean {
+        width: 100%;
+        max-width: 150px;
+    }
+
+    .system-loop-display {
+        font-size: 0.65rem;
+    }
+}
