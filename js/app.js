@@ -133,11 +133,18 @@ function bindInterfaceControls() {
 
     // Playback Buttons
     DOM.btnPlay.addEventListener('click', () => {
+        window.RuggedPlayer.unlockAudio();
         window.RuggedVisualizer.initVisualizer(DOM.audio, DOM.visualizer);
         window.RuggedPlayer.togglePlay();
     });
-    DOM.btnNext.addEventListener('click', window.RuggedPlayer.nextTrack);
-    DOM.btnPrev.addEventListener('click', window.RuggedPlayer.prevTrack);
+    DOM.btnNext.addEventListener('click', () => {
+        window.RuggedPlayer.unlockAudio();
+        window.RuggedPlayer.nextTrack();
+    });
+    DOM.btnPrev.addEventListener('click', () => {
+        window.RuggedPlayer.unlockAudio();
+        window.RuggedPlayer.prevTrack();
+    });
 
     // Shuffle & Loop toggles
     DOM.btnShuffle.addEventListener('click', () => {
@@ -535,6 +542,7 @@ async function refreshTracksList() {
 
             // Double click / Click to play row
             tr.addEventListener('click', () => {
+                window.RuggedPlayer.unlockAudio();
                 window.RuggedVisualizer.initVisualizer(DOM.audio, DOM.visualizer);
                 window.RuggedPlayer.updateQueue(displayTracks, track.id);
             });

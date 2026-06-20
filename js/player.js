@@ -663,6 +663,23 @@ function setYtVideoEnabled(enabled) {
     return isYtVideoEnabled;
 }
 
+/**
+ * Unlocks the HTML5 audio element for background playback within a user gesture callback.
+ * Call this synchronously inside click event handlers to satisfy browser autoplay requirements.
+ */
+function unlockAudio() {
+    if (audio && audio.paused) {
+        audio.play().then(() => {
+            audio.pause();
+        }).catch(e => {
+            console.warn('Audio unlock gesture bypass:', e);
+        });
+    }
+    if (window.RuggedVisualizer && window.RuggedVisualizer.resumeAudioContext) {
+        window.RuggedVisualizer.resumeAudioContext();
+    }
+}
+
 // Getters for player state
 function getPlayerState() {
     return {
@@ -694,5 +711,6 @@ window.RuggedPlayer = {
     toggleLoop,
     getPlayerState,
     setBgPlaybackEnabled,
-    setYtVideoEnabled
+    setYtVideoEnabled,
+    unlockAudio
 };
