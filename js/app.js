@@ -453,11 +453,34 @@ function parseFilename(filename) {
 }
 
 /**
+ * Fetches server-hosted tracks configured inside tracks.json
+ */
+async function loadServerTracks() {
+    try {
+        const response = await fetch('tracks.json?v=' + Date.now());
+        if (response.ok) {
+            const serverTracks = await response.json();
+            // Mark them as server tracks and assign unique IDs if not present
+            return serverTracks.map((t, idx) => {
+                t.isServerTrack = true;
+                if (!t.id) t.id = 'track_server_' + idx;
+                return t;
+            });
+        }
+    } catch (e) {
+        console.warn('Failed to load server tracks from tracks.json:', e);
+    }
+    return [];
+}
+
+/**
  * Refreshes track table display based on scope.
  */
 async function refreshTracksList() {
     try {
-        const allTracks = await window.RuggedDB.getAllTracks();
+        const allLocalTracks = await window.RuggedDB.getAllTracks();
+        const serverTracks = await loadServerTracks();
+        const allTracks = [...serverTracks, ...allLocalTracks];
         let displayTracks = [];
 
         if (currentActivePlaylist === null) {
@@ -507,13 +530,25 @@ async function refreshTracksList() {
             }
 
             const trackNo = String(index + 1).padStart(2, '0');
-            const sizeLabel = track.isYouTube ? '<span style="color:var(--color-amber-glow);font-weight:bold;">ストリーム</span>' : (track.size / (1024 * 1024)).toFixed(1) + ' MB';
-            const durationFormatted = track.duration > 0 ? formatTime(track.duration) : 'YouTube';
+            
+            // Format size label based on track source
+            let sizeLabel = '';
+            if (track.isServerTrack) {
+                sizeLabel = '<span style="color:var(--color-amber-glow);font-weight:bold;">配信</span>';
+            } else if (track.isYouTube) {
+                sizeLabel = '<span style="color:var(--color-amber-glow);font-weight:bold;">ストリーム</span>';
+            } else {
+                sizeLabel = (track.size / (1024 * 1024)).toFixed(1) + ' MB';
+            }
+
+            // Format duration label
+            const durationFormatted = track.duration > 0 ? formatTime(track.duration) : (track.isYouTube ? 'YouTube' : '配信');
 
             tr.innerHTML = `
                 <td style="width: 50px; text-align: center; color: var(--color-text-dim); font-weight: bold;">${trackNo}</td>
                 <td style="font-weight: bold;">
                     ${track.isYouTube ? '<span style="color:var(--color-amber-glow); font-size:0.75rem; margin-right:4px;">[YT]</span>' : ''}
+                    ${track.isServerTrack ? '<span style="color:var(--color-amber-glow); font-size:0.75rem; margin-right:4px;">[配信]</span>' : ''}
                     ${escapeHtml(track.title)}
                 </td>
                 <td style="color: var(--color-text-dim);">${escapeHtml(track.artist)}</td>
@@ -530,12 +565,16 @@ async function refreshTracksList() {
                                 <option value="" disabled selected>+ リストに追加</option>
                                </select>`
                         }
-                        <button class="btn-delete-icon btn-edit-track" data-track-id="${track.id}" title="情報を編集">
-                            <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                        </button>
-                        <button class="btn-delete-icon btn-destroy-track" data-track-id="${track.id}" title="完全に削除">
-                            <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                        </button>
+                        ${
+                            track.isServerTrack ? '' : `
+                            <button class="btn-delete-icon btn-edit-track" data-track-id="${track.id}" title="情報を編集">
+                                <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                            </button>
+                            <button class="btn-delete-icon btn-destroy-track" data-track-id="${track.id}" title="完全に削除">
+                                <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                            </button>
+                            `
+                        }
                     </div>
                 </td>
             `;
@@ -574,26 +613,30 @@ async function refreshTracksList() {
 
             // Bind Edit Modal click
             const editBtn = tr.querySelector('.btn-edit-track');
-            editBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                openEditorModal(track.id);
-            });
+            if (editBtn) {
+                editBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openEditorModal(track.id);
+                });
+            }
 
             // Permanently destroy track
             const destroyBtn = tr.querySelector('.btn-destroy-track');
-            destroyBtn.addEventListener('click', async () => {
-                const trackId = destroyBtn.getAttribute('data-track-id');
-                const confirmMsg = track.isYouTube 
-                    ? `YouTubeストリーム「${track.title}」をライブラリから削除しますか？`
-                    : `楽曲「${track.title}」をローカルデータベースから完全に削除しますか？\n（プレイリストからも自動的に削除されます。この操作は取り消せません）`;
-                
-                if (confirm(confirmMsg)) {
-                    await window.RuggedDB.deleteTrack(trackId);
-                    await refreshTracksList();
-                    await updateStorageGauge();
-                    await window.RuggedPlaylist.refreshPlaylists();
-                }
-            });
+            if (destroyBtn) {
+                destroyBtn.addEventListener('click', async () => {
+                    const trackId = destroyBtn.getAttribute('data-track-id');
+                    const confirmMsg = track.isYouTube 
+                        ? `YouTubeストリーム「${track.title}」をライブラリから削除しますか？`
+                        : `楽曲「${track.title}」をローカルデータベースから完全に削除しますか？\n（プレイリストからも自動的に削除されます。この操作は取り消せません）`;
+                    
+                    if (confirm(confirmMsg)) {
+                        await window.RuggedDB.deleteTrack(trackId);
+                        await refreshTracksList();
+                        await updateStorageGauge();
+                        await window.RuggedPlaylist.refreshPlaylists();
+                    }
+                });
+            }
 
             DOM.trackTableBody.appendChild(tr);
         });

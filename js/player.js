@@ -212,7 +212,7 @@ function stopYouTubeTimePoller() {
  * @param {Array<Object>} newQueue - List of track metadata objects
  * @param {string} startWithTrackId - Optional track ID to immediately play
  */
-async function updateQueue(newQueue, startWithTrackId = null) {
+function updateQueue(newQueue, startWithTrackId = null) {
     originalQueue = [...newQueue];
     
     if (isShuffle) {
@@ -226,7 +226,7 @@ async function updateQueue(newQueue, startWithTrackId = null) {
     if (startWithTrackId) {
         const index = activeQueue.findIndex(t => t.id === startWithTrackId);
         if (index !== -1) {
-            await loadAndPlay(index);
+            loadAndPlay(index);
         }
     } else if (currentTrack) {
         currentQueueIndex = activeQueue.findIndex(t => t.id === currentTrack.id);
@@ -238,15 +238,13 @@ async function updateQueue(newQueue, startWithTrackId = null) {
  * Automatically toggles between HTML5 Audio and YouTube engines!
  * @param {number} index 
  */
-async function loadAndPlay(index) {
+function loadAndPlay(index) {
     if (index < 0 || index >= activeQueue.length) return;
     
     currentQueueIndex = index;
-    const trackMetadata = activeQueue[index];
+    const fullTrack = activeQueue[index];
 
     try {
-        // Fetch track details from DB via global window.RuggedDB
-        const fullTrack = await window.RuggedDB.getTrack(trackMetadata.id);
         if (!fullTrack) {
             throw new Error(`Track metadata not found for ID: ${trackMetadata.id}`);
         }
@@ -290,6 +288,38 @@ async function loadAndPlay(index) {
                 setTimeout(() => loadAndPlay(index), 1000);
             }
 
+        } else if (fullTrack.isServerTrack) {
+            // --- SERVER AUDIO STREAM ROUTING ---
+            activeEngine = 'local';
+
+            // Stop and hide YouTube player
+            stopYouTubeTimePoller();
+            if (ytPlayer && ytPlayer.pauseVideo) {
+                ytPlayer.pauseVideo();
+            }
+            const ytScreen = document.getElementById('youtube-monitor-panel');
+            if (ytScreen) {
+                ytScreen.style.display = 'none';
+            }
+
+            // Sync visualizer
+            if (window.RuggedVisualizer) {
+                window.RuggedVisualizer.setYouTubeMode(false);
+            }
+
+            // Revoke old object URL
+            if (currentObjectUrl) {
+                URL.revokeObjectURL(currentObjectUrl);
+                currentObjectUrl = null;
+            }
+
+            currentTrack = fullTrack;
+            audio.src = fullTrack.url; // Assign server URL (e.g. music/song.mp3)
+            
+            callbacks.onTrackChange(currentTrack);
+            updateMediaSessionMetadata(currentTrack);
+            playTrack();
+
         } else {
             // --- LOCAL AUDIO ENGINE ROUTING ---
             activeEngine = 'local';
@@ -326,7 +356,7 @@ async function loadAndPlay(index) {
             
             callbacks.onTrackChange(currentTrack);
             updateMediaSessionMetadata(currentTrack);
-            await playTrack();
+            playTrack();
         }
 
     } catch (err) {
@@ -337,10 +367,10 @@ async function loadAndPlay(index) {
 /**
  * Play current track.
  */
-async function playTrack() {
+function playTrack() {
     if (activeEngine === 'local') {
         if (!audio.src) {
-            if (activeQueue.length > 0) await loadAndPlay(0);
+            if (activeQueue.length > 0) loadAndPlay(0);
             return;
         }
         try {
@@ -349,7 +379,17 @@ async function playTrack() {
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.playbackState = 'playing';
             }
-            await audio.play();
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(e => {
+                    console.warn('Local playback failed/requires gesture:', e);
+                    isPlaying = false;
+                    callbacks.onPlayStateChange(isPlaying);
+                    if ('mediaSession' in navigator) {
+                        navigator.mediaSession.playbackState = 'paused';
+                    }
+                });
+            }
         } catch (e) {
             console.warn('Local playback failed/requires gesture:', e);
             isPlaying = false;
@@ -407,7 +447,7 @@ function togglePlay() {
 /**
  * Jump to the next track.
  */
-async function nextTrack() {
+function nextTrack() {
     if (activeQueue.length === 0) return;
 
     let nextIndex = currentQueueIndex + 1;
@@ -415,13 +455,13 @@ async function nextTrack() {
         nextIndex = 0;
     }
 
-    await loadAndPlay(nextIndex);
+    loadAndPlay(nextIndex);
 }
 
 /**
  * Jump to the previous track.
  */
-async function prevTrack() {
+function prevTrack() {
     if (activeQueue.length === 0) return;
 
     let prevIndex = currentQueueIndex - 1;
@@ -429,7 +469,7 @@ async function prevTrack() {
         prevIndex = activeQueue.length - 1;
     }
 
-    await loadAndPlay(prevIndex);
+    loadAndPlay(prevIndex);
 }
 
 /**
