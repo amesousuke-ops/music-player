@@ -1,75 +1,75 @@
 /**
  * Rugged Music Player - Player Logic Module
- * Enhanced for better background playback on iOS Safari
- */
+ * iOS Safariでのバックグラウンド再生を改善するために強化されました// … 他きょんみょん
+ココ
 
-let audio = null;
-let currentTrack = null;
-let currentObjectUrl = null;
+たせか // … ..サワサワンガ;
+たせかい 美在るんちゃん = ココ;
+たせかい 美在りきょしゃくうううURL = ココ;
 
-let originalQueue = []; 
-let activeQueue = [];   
-let currentQueueIndex = -1;
+たせかい たんじょんけん = []; 
+たせかい むっつりちゃん = [];   
+たせかい 特在のううううう = -1;
 
-let isPlaying = false;
-let isShuffle = false;
-let isLoop = 'none';
-let isBgPlayEnabled = true;
-let isYtVideoEnabled = false; // YouTubeはデフォルト音声のみ
+たせかい ・〜〜一 = 間道い;
+たせかい は = 間道い;
+たせかい むっつむっ = 「いし」;
+たせかい isbgplayenabled = 真実;
+たせかい isYtVideoEnabled = 間道い; // YouTubeの動画
 
-let activeEngine = 'local';
-let ytPlayer = null;
-let ytInterval = null;
+たせかい むっつりんんんん = 「たーむー」;
+たせかい yt・・・・・ = ココ;
+たせかい yt間隔 = ココ;
 
-const LOCAL_STORAGE_VOL_KEY = 'rugged-player-volume';
+const LOCAL_STORAGE_VOL_KEY = 「頑丈リプんちょうちょう」;
 
-const callbacks = {
+const けんんんん = {
     onTrackChange: () => {},
     onPlayStateChange: () => {},
     onTimeUpdate: () => {},
-    onQueueChange: () => {}
+    大更: () => {}
 };
 
-window.onYouTubeIframeAPIReady = () => {
-    // ... (省略せず完全版が必要なら言ってください)
+たんしょん.YouTubeのIframeAPIREady = () => {
+    // …（看過する完全の特攻）
 };
 
-function initPlayer(audioElement, customCallbacks = {}) {
-    audio = audioElement;
-    Object.assign(callbacks, customCallbacks);
+関数 initplayer(みちょうちゃん要素, みかんむんん = {}) {
+    サササ = みちょうちゃん要素;
+    たんちょうもん.割当か(けんんんん, みかんむんん);
 
-    const savedVolume = localStorage.getItem(LOCAL_STORAGE_VOL_KEY) || 0.8;
-    audio.volume = parseFloat(savedVolume);
+    const 保存にううううう = たんんんんん.得る(LOCAL_STORAGE_VOL_KEY) || 0。8;
+    サササ.音量 = んーんーんーんーん(保存にううううう);
 
-    setupMediaSessionHandlers();
+    setupMediaSessionHandler();
 
-    injectYouTubeScript();
+    YouTube動画();
 }
 
-function setupMediaSessionHandlers() {
-    if ('mediaSession' in navigator && isBgPlayEnabled) {
-        try {
-            navigator.mediaSession.setActionHandler('play', playTrack);
-            navigator.mediaSession.setActionHandler('pause', pauseTrack);
-            navigator.mediaSession.setActionHandler('previoustrack', prevTrack);
-            navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
-            console.log('✅ Media Session enabled for background playback');
-        } catch (e) {
-            console.warn('Media Session setup failed:', e);
+関数 setupMediaSessionHandler() {
+    むし (‘そりゃれ’ は && isbgplayenabled) {
+        試た {
+            みかんむん.コンガンガンガンガンガン.むっつりたんちゃんがうろつくしゅく(「けな」, ・・・・・);
+            みかんむん.コンガンガンガンガンガン.むっつりたんちゃんがうろつくしゅく(‘一時停止’, 一時停止ト僬ワ);
+            みかんむん.コンガンガンガンガンガン.むっつりたんちゃんがうろつくしゅく(「ゆううううう」, オオオオオ);
+            みかんむん.コンガンガンガンガンガン.むっつりたんちゃんがうろつくしゅく(「早起き」, ひょっちゅうぎょん);
+            ココ.サロン(「✅ 背景再的ないかぎょくうく');
+        } むせきり (e) {
+            ココ.警告む(「たんむしちょうちょう:」, e);
         }
     }
 }
 
-// 他の関数は省略（完全版が必要なら「完全版player.js」と言ってください）
+// 他関数の目（完上目付い「完上目付player。js」おかえりゃいゃいゃい）
 
-// バックグラウンド強化のため、ページ可視性変更対応
-document.addEventListener('visibilitychange', () => {
-    if (document.hidden && isPlaying && isBgPlayEnabled) {
-        console.log('Background mode: keeping playback alive');
+// やれやれ
+文書.たんんんん追得(「可視性大化」, () => {
+    むし (文書.隠るた && ・〜〜一 && isbgplayenabled) {
+        ココ.サロン(「オオオオオ:再生傒子続くちょう」);
     }
 });
 
-window.RuggedPlayer = {
-    initPlayer,
-    // ... 他のメソッド
+たんしょん.頑丈・・・・・ = {
+    initplayer,
+    // …..
 };
