@@ -362,13 +362,78 @@ function initDragAndDrop() {
 }
 
 /**
- * Processes list of local uploaded files and puts them in IndexedDB.
+ * Checks if the local helper upload server is running on localhost.
+ * @returns {Promise<boolean>}
+ */
+async function checkLocalServer() {
+    try {
+        const response = await fetch('http://localhost:3000/status', { mode: 'cors' });
+        if (response.ok) {
+            const data = await response.json();
+            return data.status === 'online';
+        }
+    } catch (e) {
+        // Offline or blocked
+    }
+    return false;
+}
+
+/**
+ * Processes list of local uploaded files and puts them in either local server or IndexedDB.
  */
 async function handleFileUpload(files) {
-    let importedCount = 0;
-    
-    DOM.vfdStatus.textContent = '取り込み中...';
+    DOM.vfdStatus.textContent = '同期確認中...';
     DOM.vfdBlink.classList.add('active');
+
+    const isLocalServerOnline = await checkLocalServer();
+
+    if (isLocalServerOnline) {
+        DOM.vfdStatus.textContent = '外部同期中...';
+        let syncSuccessCount = 0;
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (!file.type.startsWith('audio/')) {
+                console.warn('オーディオファイルではないためスキップしました:', file.name);
+                continue;
+            }
+
+            try {
+                DOM.vfdStatus.textContent = `同期中 [${i+1}/${files.length}]`;
+                const response = await fetch('http://localhost:3000/upload', {
+                    method: 'POST',
+                    headers: {
+                        'X-File-Name': encodeURIComponent(file.name),
+                        'Content-Type': file.type
+                    },
+                    body: file
+                });
+
+                if (response.ok) {
+                    syncSuccessCount++;
+                } else {
+                    console.error('Server sync failed for file:', file.name);
+                }
+            } catch (err) {
+                console.error('Local server sync error:', err);
+            }
+        }
+
+        DOM.vfdStatus.textContent = 'システム稼働中';
+        DOM.vfdBlink.classList.remove('active');
+
+        if (syncSuccessCount > 0) {
+            alert(`${syncSuccessCount} 曲のPC同期とGitHub送信に成功しました！\n1〜2分後にスマホ版に反映されます。`);
+            await refreshTracksList();
+        } else {
+            alert('同期に失敗しました。ローカルサーバーのコンソールを確認してください。');
+        }
+        return;
+    }
+
+    // Default Local IndexedDB fallback
+    let importedCount = 0;
+    DOM.vfdStatus.textContent = '取り込み中...';
 
     for (let i = 0; i < files.length; i++) {
         const file = files[i];

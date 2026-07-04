@@ -22,10 +22,12 @@ const peakDecayRate = 0.8;
  * @param {HTMLCanvasElement} canvasElement - The visualization canvas
  */
 function initVisualizer(audioElement, canvasElement) {
-    // Detect mobile browser to bypass Web Audio API nodes connection.
+    // Detect mobile/tablet browser to bypass Web Audio API nodes connection.
     // iOS Safari has a persistent bug where connecting <audio> to createMediaElementSource() 
     // causes the background audio stream to be forcefully suspended when the tab becomes inactive.
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+        || ('ontouchstart' in window);
     
     if (isMobile) {
         isYouTubeMode = true; // Force synthetic visualization waves
