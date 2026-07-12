@@ -101,6 +101,46 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    // File Delete endpoint
+    if (req.method === 'POST' && req.url === '/delete') {
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', () => {
+            try {
+                const data = JSON.parse(body);
+                if (!data.url) {
+                    res.writeHead(400, { 'Content-Type': 'text/plain' });
+                    res.end('Missing url parameter');
+                    return;
+                }
+                const fileName = path.basename(data.url);
+                const filePath = path.join(MUSIC_DIR, fileName);
+
+                console.log(`Receiving delete request for: ${fileName}`);
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                    console.log(`Deleted file locally: ${fileName}. Synchronizing...`);
+                    runGitSync((syncErr, msg) => {
+                        if (syncErr) {
+                            res.writeHead(500, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: syncErr.message }));
+                        } else {
+                            res.writeHead(200, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ success: true, message: 'Delete sync complete!' }));
+                        }
+                    });
+                } else {
+                    res.writeHead(404, { 'Content-Type': 'text/plain' });
+                    res.end('File not found');
+                }
+            } catch (e) {
+                res.writeHead(500, { 'Content-Type': 'text/plain' });
+                res.end(`Error: ${e.message}`);
+            }
+        });
+        return;
+    }
+
     // Not Found
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not Found');

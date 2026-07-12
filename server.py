@@ -102,6 +102,47 @@ class UploadHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(f"Error: {e}".encode())
 
+        elif self.path == '/delete':
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                body = self.rfile.read(content_length).decode('utf-8')
+                data = json.loads(body)
+                url_param = data.get('url')
+                if not url_param:
+                    self.send_response(400)
+                    self.end_headers()
+                    self.wfile.write(b'Missing url parameter')
+                    return
+
+                filename = os.path.basename(url_param)
+                filepath = os.path.join(MUSIC_DIR, filename)
+
+                print(f"Receiving delete request for: {filename}")
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                    print(f"Deleted file locally: {filename}. Synchronizing...")
+                    success = run_git_sync()
+                    if success:
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'application/json')
+                        self.end_headers()
+                        self.wfile.write(b'{"success": true, "message": "Delete sync complete!"}')
+                    else:
+                        self.send_response(500)
+                        self.send_header('Content-Type', 'application/json')
+                        self.end_headers()
+                        self.wfile.write(b'{"error": "Failed to sync"}')
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+                    self.wfile.write(b'File not found')
+
+            except Exception as e:
+                print("Error handling delete:", e)
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(f"Error: {e}".encode())
+
 def run():
     server_address = ('', PORT)
     httpd = HTTPServer(server_address, UploadHandler)

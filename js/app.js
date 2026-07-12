@@ -444,7 +444,7 @@ async function handleFileUpload(files) {
         }
 
         try {
-            const duration = await getAudioDuration(file);
+            const duration = 0; // Set to 0 to prevent iOS Safari from hanging. Dynamic duration sync will update this on first play.
             const cleanMetadata = parseFilename(file.name);
 
             const track = {
@@ -543,6 +543,7 @@ async function loadServerTracks() {
  */
 async function refreshTracksList() {
     try {
+        const isServerOnline = await checkLocalServer();
         const allLocalTracks = await window.RuggedDB.getAllTracks();
         const serverTracks = await loadServerTracks();
         const allTracks = [...serverTracks, ...allLocalTracks];
@@ -631,10 +632,12 @@ async function refreshTracksList() {
                                </select>`
                         }
                         ${
-                            track.isServerTrack ? '' : `
+                            (track.isServerTrack && !isServerOnline) ? '' : `
+                            ${track.isServerTrack ? '' : `
                             <button class="btn-delete-icon btn-edit-track" data-track-id="${track.id}" title="情報を編集">
                                 <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
                             </button>
+                            `}
                             <button class="btn-delete-icon btn-destroy-track" data-track-id="${track.id}" title="完全に削除">
                                 <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                             </button>
@@ -690,6 +693,37 @@ async function refreshTracksList() {
             if (destroyBtn) {
                 destroyBtn.addEventListener('click', async () => {
                     const trackId = destroyBtn.getAttribute('data-track-id');
+                    
+                    if (track.isServerTrack) {
+                        const confirmMsg = `配信曲「${track.title}」をサーバーおよびGitHubから完全に削除しますか？\n（PCのファイルも削除され、自動的に同期されます）`;
+                        if (confirm(confirmMsg)) {
+                            DOM.vfdStatus.textContent = '同期削除中...';
+                            DOM.vfdBlink.classList.add('active');
+                            try {
+                                const response = await fetch('http://localhost:3000/delete', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ url: track.url })
+                                });
+                                if (response.ok) {
+                                    alert(`配信曲「${track.title}」の削除と同期が成功しました！\n1〜2分後にスマホ版に反映されます。`);
+                                    await refreshTracksList();
+                                } else {
+                                    alert('サーバーでの削除に失敗しました。');
+                                }
+                            } catch (e) {
+                                console.error('Delete request failed:', e);
+                                alert('同期サーバーに接続できません。');
+                            } finally {
+                                DOM.vfdStatus.textContent = 'システム稼働中';
+                                DOM.vfdBlink.classList.remove('active');
+                            }
+                        }
+                        return;
+                    }
+
                     const confirmMsg = track.isYouTube 
                         ? `YouTubeストリーム「${track.title}」をライブラリから削除しますか？`
                         : `楽曲「${track.title}」をローカルデータベースから完全に削除しますか？\n（プレイリストからも自動的に削除されます。この操作は取り消せません）`;
@@ -995,19 +1029,21 @@ function handleTimeUpdate(currentTime, duration) {
 
     // Dynamic Duration Sync:
     const state = window.RuggedPlayer.getPlayerState();
-    if (state.currentTrack && state.currentTrack.isYouTube && state.currentTrack.duration === 0 && duration > 0) {
+    if (state.currentTrack && state.currentTrack.duration === 0 && duration > 0) {
         state.currentTrack.duration = duration;
-        window.RuggedDB.saveTrack(state.currentTrack).then(() => {
-            const rows = DOM.trackTableBody.querySelectorAll('tr');
-            rows.forEach(row => {
-                if (row.getAttribute('data-id') === state.currentTrack.id) {
-                    const durationSpan = row.querySelector('.action-cell span');
-                    if (durationSpan) {
-                        durationSpan.textContent = formatTime(duration);
+        if (!state.currentTrack.isServerTrack) {
+            window.RuggedDB.saveTrack(state.currentTrack).then(() => {
+                const rows = DOM.trackTableBody.querySelectorAll('tr');
+                rows.forEach(row => {
+                    if (row.getAttribute('data-id') === state.currentTrack.id) {
+                        const durationSpan = row.querySelector('.action-cell span');
+                        if (durationSpan) {
+                            durationSpan.textContent = formatTime(duration);
+                        }
                     }
-                }
+                });
             });
-        });
+        }
     }
 }
 
