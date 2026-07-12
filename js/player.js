@@ -348,8 +348,21 @@ function loadAndPlay(index) {
                 URL.revokeObjectURL(currentObjectUrl);
             }
 
+            // Fix empty or missing MIME type on iOS File app imports
+            let fileBlob = fullTrack.file;
+            if (!fileBlob.type || !fileBlob.type.startsWith('audio/')) {
+                const ext = fullTrack.name.split('.').pop().toLowerCase();
+                let inferredType = 'audio/mpeg';
+                if (ext === 'mp3') inferredType = 'audio/mpeg';
+                else if (ext === 'wav') inferredType = 'audio/wav';
+                else if (ext === 'm4a') inferredType = 'audio/mp4';
+                else if (ext === 'ogg') inferredType = 'audio/ogg';
+                else if (ext === 'flac') inferredType = 'audio/flac';
+                fileBlob = new Blob([fullTrack.file], { type: inferredType });
+            }
+
             // Create new Blob URL
-            currentObjectUrl = URL.createObjectURL(fullTrack.file);
+            currentObjectUrl = URL.createObjectURL(fileBlob);
             
             currentTrack = fullTrack;
             audio.src = currentObjectUrl;

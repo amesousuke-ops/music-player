@@ -393,18 +393,34 @@ async function handleFileUpload(files) {
 
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
-            if (!file.type.startsWith('audio/')) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            const isSupportedExt = ['mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac'].includes(ext);
+
+            if (!file.type.startsWith('audio/') && !isSupportedExt) {
                 console.warn('オーディオファイルではないためスキップしました:', file.name);
                 continue;
             }
 
             try {
                 DOM.vfdStatus.textContent = `同期中 [${i+1}/${files.length}]`;
+                
+                // Fix empty Content-Type header on iOS File app uploads
+                let contentType = file.type;
+                if (!contentType) {
+                    let inferredType = 'audio/mpeg';
+                    if (ext === 'mp3') inferredType = 'audio/mpeg';
+                    else if (ext === 'wav') inferredType = 'audio/wav';
+                    else if (ext === 'm4a') inferredType = 'audio/mp4';
+                    else if (ext === 'ogg') inferredType = 'audio/ogg';
+                    else if (ext === 'flac') inferredType = 'audio/flac';
+                    contentType = inferredType;
+                }
+
                 const response = await fetch('http://localhost:3000/upload', {
                     method: 'POST',
                     headers: {
                         'X-File-Name': encodeURIComponent(file.name),
-                        'Content-Type': file.type
+                        'Content-Type': contentType
                     },
                     body: file
                 });
@@ -437,8 +453,10 @@ async function handleFileUpload(files) {
 
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        
-        if (!file.type.startsWith('audio/')) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const isSupportedExt = ['mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac'].includes(ext);
+
+        if (!file.type.startsWith('audio/') && !isSupportedExt) {
             console.warn('オーディオファイルではないためスキップしました:', file.name);
             continue;
         }
@@ -447,6 +465,20 @@ async function handleFileUpload(files) {
             const duration = 0; // Set to 0 to prevent iOS Safari from hanging. Dynamic duration sync will update this on first play.
             const cleanMetadata = parseFilename(file.name);
 
+            // Fix empty MIME type on iOS Files app imports to prevent Safari playback fail
+            let fileBlob = file;
+            let fileType = file.type;
+            if (!fileType || !fileType.startsWith('audio/')) {
+                let inferredType = 'audio/mpeg';
+                if (ext === 'mp3') inferredType = 'audio/mpeg';
+                else if (ext === 'wav') inferredType = 'audio/wav';
+                else if (ext === 'm4a') inferredType = 'audio/mp4';
+                else if (ext === 'ogg') inferredType = 'audio/ogg';
+                else if (ext === 'flac') inferredType = 'audio/flac';
+                fileType = inferredType;
+                fileBlob = new Blob([file], { type: inferredType });
+            }
+
             const track = {
                 id: 'track_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
                 name: file.name,
@@ -454,8 +486,8 @@ async function handleFileUpload(files) {
                 artist: cleanMetadata.artist,
                 duration: duration,
                 size: file.size,
-                type: file.type,
-                file: file, 
+                type: fileType,
+                file: fileBlob, 
                 coverArt: null, // Holds base64 cover image if uploaded
                 addedAt: Date.now()
             };
