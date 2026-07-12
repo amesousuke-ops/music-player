@@ -169,6 +169,9 @@ function bindInterfaceControls() {
     DOM.uploaderSlot.addEventListener('click', () => {
         DOM.fileInput.click();
     });
+    DOM.fileInput.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent click event bubbling and double dialog trigger
+    });
     DOM.fileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
             handleFileUpload(e.target.files);
@@ -335,6 +338,11 @@ function extractYouTubeId(url) {
  */
 function initDragAndDrop() {
     const slot = DOM.uploaderSlot;
+    
+    // Prevent default drag/drop behaviors on window to stop browser navigation
+    window.addEventListener('dragenter', (e) => e.preventDefault(), false);
+    window.addEventListener('dragover', (e) => e.preventDefault(), false);
+    window.addEventListener('drop', (e) => e.preventDefault(), false);
     
     ['dragenter', 'dragover'].forEach(eventName => {
         slot.addEventListener(eventName, (e) => {

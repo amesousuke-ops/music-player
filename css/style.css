@@ -166,7 +166,8 @@ body {
     transition: all 0.2s ease;
     text-align: center;
 }
-.drag-upload-zone:hover {
+.drag-upload-zone:hover,
+.drag-upload-zone.dragover {
     border-color: var(--color-amber-glow);
     background: rgba(255, 119, 0, 0.04);
 }
@@ -176,14 +177,16 @@ body {
     fill: var(--color-text-dim);
     margin-bottom: 6px;
 }
-.drag-upload-zone:hover svg {
+.drag-upload-zone:hover svg,
+.drag-upload-zone.dragover svg {
     fill: var(--color-amber-bright);
 }
 .drag-upload-zone p {
     font-size: 0.75rem;
     color: var(--color-text-dim);
 }
-.drag-upload-zone:hover p {
+.drag-upload-zone:hover p,
+.drag-upload-zone.dragover p {
     color: var(--color-text-bright);
 }
 .hidden-file-input {
