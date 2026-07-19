@@ -376,14 +376,21 @@ function initDragAndDrop() {
  * @returns {Promise<boolean>}
  */
 async function checkLocalServer() {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 500); // 500ms short timeout for localhost check
+
     try {
-        const response = await fetch('http://localhost:3000/status', { mode: 'cors' });
+        const response = await fetch('http://localhost:3000/status', { 
+            mode: 'cors',
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
         if (response.ok) {
             const data = await response.json();
             return data.status === 'online';
         }
     } catch (e) {
-        // Offline or blocked
+        // Offline, blocked, or aborted
     }
     return false;
 }
