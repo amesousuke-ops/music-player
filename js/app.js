@@ -347,21 +347,23 @@ function initDragAndDrop() {
         }, false);
     });
 
-    ['dragleave', 'drop'].forEach(eventName => {
-        input.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            slot.classList.remove('dragover');
-        }, false);
-    });
+    input.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        slot.classList.remove('dragover');
+    }, false);
 
     input.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        slot.classList.remove('dragover');
+        
         const dt = e.dataTransfer;
         const files = dt.files;
         if (files.length > 0) {
             handleFileUpload(files);
         }
-    });
+    }, false);
 }
 
 /**
