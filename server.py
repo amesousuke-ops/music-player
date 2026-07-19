@@ -1,7 +1,9 @@
 import os
 import sys
+import json
 import subprocess
 import urllib.parse
+import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 PORT = 3000
@@ -32,6 +34,28 @@ def run_git_sync():
         print("Git commands warning/error:", e)
         # We return True even on soft git warning (like no changes to commit) to avoid hanging the response
         return True
+
+sync_timer = None
+sync_lock = threading.Lock()
+
+def schedule_git_sync():
+    global sync_timer
+    with sync_lock:
+        if sync_timer:
+            sync_timer.cancel()
+        print("Scheduling Git sync in 2 seconds...")
+        sync_timer = threading.Timer(2.0, run_delayed_git_sync)
+        sync_timer.start()
+
+def run_delayed_git_sync():
+    global sync_timer
+    with sync_lock:
+        sync_timer = None
+    success = run_git_sync()
+    if success:
+        print("Delayed Git sync completed successfully.")
+    else:
+        print("Delayed Git sync failed.")
 
 class UploadHandler(BaseHTTPRequestHandler):
     def end_headers(self):
@@ -82,19 +106,13 @@ class UploadHandler(BaseHTTPRequestHandler):
                         f.write(chunk)
                         remaining -= len(chunk)
 
-                print(f"Successfully saved: {safe_filename}. Synchronizing...")
-                success = run_git_sync()
+                print(f"Successfully saved: {safe_filename}.")
+                schedule_git_sync()
                 
-                if success:
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'application/json')
-                    self.end_headers()
-                    self.wfile.write(b'{"success": true, "message": "Sync complete!"}')
-                else:
-                    self.send_response(500)
-                    self.send_header('Content-Type', 'application/json')
-                    self.end_headers()
-                    self.wfile.write(b'{"error": "Failed to sync"}')
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"success": true, "message": "Upload received, sync scheduled."}')
 
             except Exception as e:
                 print("Error handling upload:", e)
@@ -120,18 +138,13 @@ class UploadHandler(BaseHTTPRequestHandler):
                 print(f"Receiving delete request for: {filename}")
                 if os.path.exists(filepath):
                     os.remove(filepath)
-                    print(f"Deleted file locally: {filename}. Synchronizing...")
-                    success = run_git_sync()
-                    if success:
-                        self.send_response(200)
-                        self.send_header('Content-Type', 'application/json')
-                        self.end_headers()
-                        self.wfile.write(b'{"success": true, "message": "Delete sync complete!"}')
-                    else:
-                        self.send_response(500)
-                        self.send_header('Content-Type', 'application/json')
-                        self.end_headers()
-                        self.wfile.write(b'{"error": "Failed to sync"}')
+                    print(f"Deleted file locally: {filename}.")
+                    schedule_git_sync()
+                    
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(b'{"success": true, "message": "Delete complete, sync scheduled."}')
                 else:
                     self.send_response(404)
                     self.end_headers()

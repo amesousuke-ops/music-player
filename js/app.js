@@ -165,13 +165,7 @@ function bindInterfaceControls() {
         window.RuggedPlayer.seekTo(percent);
     });
 
-    // File selection click handler
-    DOM.uploaderSlot.addEventListener('click', () => {
-        DOM.fileInput.click();
-    });
-    DOM.fileInput.addEventListener('click', (e) => {
-        e.stopPropagation(); // Prevent click event bubbling and double dialog trigger
-    });
+    // File selection change handler
     DOM.fileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
             handleFileUpload(e.target.files);
@@ -338,6 +332,7 @@ function extractYouTubeId(url) {
  */
 function initDragAndDrop() {
     const slot = DOM.uploaderSlot;
+    const input = DOM.fileInput;
     
     // Prevent default drag/drop behaviors on window to stop browser navigation
     window.addEventListener('dragenter', (e) => e.preventDefault(), false);
@@ -345,7 +340,7 @@ function initDragAndDrop() {
     window.addEventListener('drop', (e) => e.preventDefault(), false);
     
     ['dragenter', 'dragover'].forEach(eventName => {
-        slot.addEventListener(eventName, (e) => {
+        input.addEventListener(eventName, (e) => {
             e.preventDefault();
             e.stopPropagation();
             slot.classList.add('dragover');
@@ -353,14 +348,14 @@ function initDragAndDrop() {
     });
 
     ['dragleave', 'drop'].forEach(eventName => {
-        slot.addEventListener(eventName, (e) => {
+        input.addEventListener(eventName, (e) => {
             e.preventDefault();
             e.stopPropagation();
             slot.classList.remove('dragover');
         }, false);
     });
 
-    slot.addEventListener('drop', (e) => {
+    input.addEventListener('drop', (e) => {
         const dt = e.dataTransfer;
         const files = dt.files;
         if (files.length > 0) {
@@ -397,21 +392,17 @@ async function handleFileUpload(files) {
 
     if (isLocalServerOnline) {
         DOM.vfdStatus.textContent = '外部同期中...';
-        let syncSuccessCount = 0;
-
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
+        
+        const uploadPromises = Array.from(files).map(async (file) => {
             const ext = file.name.split('.').pop().toLowerCase();
             const isSupportedExt = ['mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac'].includes(ext);
 
             if (!file.type.startsWith('audio/') && !isSupportedExt) {
                 console.warn('オーディオファイルではないためスキップしました:', file.name);
-                continue;
+                return { success: false, name: file.name, skipped: true };
             }
 
             try {
-                DOM.vfdStatus.textContent = `同期中 [${i+1}/${files.length}]`;
-                
                 // Fix empty Content-Type header on iOS File app uploads
                 let contentType = file.type;
                 if (!contentType) {
@@ -433,21 +424,21 @@ async function handleFileUpload(files) {
                     body: file
                 });
 
-                if (response.ok) {
-                    syncSuccessCount++;
-                } else {
-                    console.error('Server sync failed for file:', file.name);
-                }
+                return { success: response.ok, name: file.name };
             } catch (err) {
                 console.error('Local server sync error:', err);
+                return { success: false, name: file.name, error: err };
             }
-        }
+        });
+
+        const results = await Promise.all(uploadPromises);
+        const successCount = results.filter(r => r.success).length;
 
         DOM.vfdStatus.textContent = 'システム稼働中';
         DOM.vfdBlink.classList.remove('active');
 
-        if (syncSuccessCount > 0) {
-            alert(`${syncSuccessCount} 曲のPC同期とGitHub送信に成功しました！\n1〜2分後にスマホ版に反映されます。`);
+        if (successCount > 0) {
+            alert(`${successCount} 曲のPC同期（アップロード）に成功しました！\nサーバー側でGitHubへの自動送信が行われます。1〜2分後にスマホ版に反映されます。`);
             await refreshTracksList();
         } else {
             alert('同期に失敗しました。ローカルサーバーのコンソールを確認してください。');
@@ -456,17 +447,15 @@ async function handleFileUpload(files) {
     }
 
     // Default Local IndexedDB fallback
-    let importedCount = 0;
     DOM.vfdStatus.textContent = '取り込み中...';
 
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+    const importPromises = Array.from(files).map(async (file) => {
         const ext = file.name.split('.').pop().toLowerCase();
         const isSupportedExt = ['mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac'].includes(ext);
 
         if (!file.type.startsWith('audio/') && !isSupportedExt) {
             console.warn('オーディオファイルではないためスキップしました:', file.name);
-            continue;
+            return false;
         }
 
         try {
@@ -496,16 +485,20 @@ async function handleFileUpload(files) {
                 size: file.size,
                 type: fileType,
                 file: fileBlob, 
-                coverArt: null, // Holds base64 cover image if uploaded
+                coverArt: null,
                 addedAt: Date.now()
             };
 
             await window.RuggedDB.saveTrack(track);
-            importedCount++;
+            return true;
         } catch (err) {
             console.error('取り込みに失敗しました:', file.name, err);
+            return false;
         }
-    }
+    });
+
+    const importResults = await Promise.all(importPromises);
+    const importedCount = importResults.filter(r => r).length;
 
     DOM.vfdStatus.textContent = 'システム稼働中';
     DOM.vfdBlink.classList.remove('active');
@@ -672,12 +665,14 @@ async function refreshTracksList() {
                                </select>`
                         }
                         ${
-                            (track.isServerTrack && !isServerOnline) ? '' : `
-                            ${track.isServerTrack ? '' : `
+                            track.isServerTrack ? `
+                            <button class="btn-delete-icon btn-destroy-track" data-track-id="${track.id}" title="サーバーから完全に削除">
+                                <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                            </button>
+                            ` : `
                             <button class="btn-delete-icon btn-edit-track" data-track-id="${track.id}" title="情報を編集">
                                 <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
                             </button>
-                            `}
                             <button class="btn-delete-icon btn-destroy-track" data-track-id="${track.id}" title="完全に削除">
                                 <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                             </button>
@@ -735,6 +730,11 @@ async function refreshTracksList() {
                     const trackId = destroyBtn.getAttribute('data-track-id');
                     
                     if (track.isServerTrack) {
+                        const isServerOnline = await checkLocalServer();
+                        if (!isServerOnline) {
+                            alert('配信曲の削除は、PC側で同期サーバー（start-server.bat）が起動している時のみ実行可能です。\nPC側でサーバーを起動してから再度お試しください。');
+                            return;
+                        }
                         const confirmMsg = `配信曲「${track.title}」をサーバーおよびGitHubから完全に削除しますか？\n（PCのファイルも削除され、自動的に同期されます）`;
                         if (confirm(confirmMsg)) {
                             DOM.vfdStatus.textContent = '同期削除中...';

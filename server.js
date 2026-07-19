@@ -18,7 +18,8 @@ function runGitSync(callback) {
     exec('node update-tracks.js', (err, stdout, stderr) => {
         if (err) {
             console.error('Failed to run update-tracks.js:', err);
-            return callback(new Error('Failed to update tracks list'));
+            if (callback) return callback(new Error('Failed to update tracks list'));
+            return;
         }
         console.log('tracks.json updated successfully.');
 
@@ -27,12 +28,30 @@ function runGitSync(callback) {
         exec(gitCommands, (gitErr, gitStdout, gitStderr) => {
             if (gitErr) {
                 console.warn('Git push warn/error:', gitErr.message);
-                // Sometimes push fails if there are no changes, we treat it as soft success or report warning
             }
             console.log('Git commands output:', gitStdout);
-            callback(null, 'Sync completed');
+            if (callback) callback(null, 'Sync completed');
         });
     });
+}
+
+let syncTimeout = null;
+
+function scheduleGitSync() {
+    if (syncTimeout) {
+        clearTimeout(syncTimeout);
+    }
+    console.log("Scheduling Git sync in 2 seconds...");
+    syncTimeout = setTimeout(() => {
+        syncTimeout = null;
+        runGitSync((err, msg) => {
+            if (err) {
+                console.error("Delayed Git sync failed:", err);
+            } else {
+                console.log("Delayed Git sync completed successfully.");
+            }
+        });
+    }, 2000);
 }
 
 const server = http.createServer((req, res) => {
@@ -75,16 +94,10 @@ const server = http.createServer((req, res) => {
             req.pipe(fileStream);
 
             fileStream.on('finish', () => {
-                console.log(`Successfully saved: ${safeFileName}. Synchronizing...`);
-                runGitSync((syncErr, msg) => {
-                    if (syncErr) {
-                        res.writeHead(500, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ error: syncErr.message }));
-                    } else {
-                        res.writeHead(200, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ success: true, message: 'Sync complete!' }));
-                    }
-                });
+                console.log(`Successfully saved: ${safeFileName}.`);
+                scheduleGitSync();
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, message: 'Upload received, sync scheduled.' }));
             });
 
             fileStream.on('error', (streamErr) => {
@@ -119,16 +132,10 @@ const server = http.createServer((req, res) => {
                 console.log(`Receiving delete request for: ${fileName}`);
                 if (fs.existsSync(filePath)) {
                     fs.unlinkSync(filePath);
-                    console.log(`Deleted file locally: ${fileName}. Synchronizing...`);
-                    runGitSync((syncErr, msg) => {
-                        if (syncErr) {
-                            res.writeHead(500, { 'Content-Type': 'application/json' });
-                            res.end(JSON.stringify({ error: syncErr.message }));
-                        } else {
-                            res.writeHead(200, { 'Content-Type': 'application/json' });
-                            res.end(JSON.stringify({ success: true, message: 'Delete sync complete!' }));
-                        }
-                    });
+                    console.log(`Deleted file locally: ${fileName}.`);
+                    scheduleGitSync();
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: true, message: 'Delete complete, sync scheduled.' }));
                 } else {
                     res.writeHead(404, { 'Content-Type': 'text/plain' });
                     res.end('File not found');
