@@ -165,7 +165,13 @@ function bindInterfaceControls() {
         window.RuggedPlayer.seekTo(percent);
     });
 
-    // File selection change handler
+    // File selection click handler
+    DOM.uploaderSlot.addEventListener('click', () => {
+        DOM.fileInput.click();
+    });
+    DOM.fileInput.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent click event bubbling and double dialog trigger
+    });
     DOM.fileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
             handleFileUpload(e.target.files);
@@ -332,7 +338,6 @@ function extractYouTubeId(url) {
  */
 function initDragAndDrop() {
     const slot = DOM.uploaderSlot;
-    const input = DOM.fileInput;
     
     // Prevent default drag/drop behaviors on window to stop browser navigation
     window.addEventListener('dragenter', (e) => e.preventDefault(), false);
@@ -340,20 +345,20 @@ function initDragAndDrop() {
     window.addEventListener('drop', (e) => e.preventDefault(), false);
     
     ['dragenter', 'dragover'].forEach(eventName => {
-        input.addEventListener(eventName, (e) => {
+        slot.addEventListener(eventName, (e) => {
             e.preventDefault();
             e.stopPropagation();
             slot.classList.add('dragover');
         }, false);
     });
 
-    input.addEventListener('dragleave', (e) => {
+    slot.addEventListener('dragleave', (e) => {
         e.preventDefault();
         e.stopPropagation();
         slot.classList.remove('dragover');
     }, false);
 
-    input.addEventListener('drop', (e) => {
+    slot.addEventListener('drop', (e) => {
         e.preventDefault();
         e.stopPropagation();
         slot.classList.remove('dragover');
