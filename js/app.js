@@ -410,8 +410,9 @@ async function handleFileUpload(files) {
         const uploadPromises = Array.from(files).map(async (file) => {
             const ext = file.name.split('.').pop().toLowerCase();
             const isSupportedExt = ['mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac'].includes(ext);
+            const fileType = file.type || '';
 
-            if (!file.type.startsWith('audio/') && !isSupportedExt) {
+            if (!fileType.startsWith('audio/') && !isSupportedExt) {
                 console.warn('オーディオファイルではないためスキップしました:', file.name);
                 return { success: false, name: file.name, skipped: true };
             }
@@ -467,7 +468,8 @@ async function handleFileUpload(files) {
         const ext = file.name.split('.').pop().toLowerCase();
         const isSupportedExt = ['mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac'].includes(ext);
 
-        if (!file.type.startsWith('audio/') && !isSupportedExt) {
+        const fileType = file.type || '';
+        if (!fileType.startsWith('audio/') && !isSupportedExt) {
             console.warn('オーディオファイルではないためスキップしました:', file.name);
             return false;
         }
