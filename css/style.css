@@ -170,6 +170,9 @@ body {
     transition: all 0.2s ease;
     text-align: center;
 }
+.drag-upload-zone * {
+    pointer-events: none;
+}
 .drag-upload-zone:hover,
 .drag-upload-zone.dragover {
     border-color: var(--color-amber-glow);
