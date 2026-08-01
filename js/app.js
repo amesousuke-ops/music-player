@@ -480,7 +480,6 @@ async function handleFileUpload(files) {
             const cleanMetadata = parseFilename(file.name);
 
             // Fix empty MIME type on iOS Files app imports to prevent Safari playback fail
-            let fileBlob = file;
             let fileType = file.type;
             if (!fileType || !fileType.startsWith('audio/')) {
                 let inferredType = 'audio/mpeg';
@@ -490,7 +489,6 @@ async function handleFileUpload(files) {
                 else if (ext === 'ogg') inferredType = 'audio/ogg';
                 else if (ext === 'flac') inferredType = 'audio/flac';
                 fileType = inferredType;
-                fileBlob = new Blob([file], { type: inferredType });
             }
 
             const track = {
@@ -501,7 +499,7 @@ async function handleFileUpload(files) {
                 duration: duration,
                 size: file.size,
                 type: fileType,
-                file: fileBlob, 
+                file: file, // Store the native File object directly to prevent DataCloneError in Windows desktop browsers
                 coverArt: null,
                 addedAt: Date.now()
             };
