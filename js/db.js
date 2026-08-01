@@ -5,7 +5,7 @@
  */
 
 const DB_NAME = 'RuggedMusicPlayerDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbInstance = null;
 

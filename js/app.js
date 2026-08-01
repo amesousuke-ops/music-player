@@ -442,6 +442,7 @@ async function handleFileUpload(files) {
                 return { success: response.ok, name: file.name };
             } catch (err) {
                 console.error('Local server sync error:', err);
+                alert('サーバー同期失敗 (' + file.name + '): ' + err.message);
                 return { success: false, name: file.name, error: err };
             }
         });
@@ -509,6 +510,7 @@ async function handleFileUpload(files) {
             return true;
         } catch (err) {
             console.error('取り込みに失敗しました:', file.name, err);
+            alert('取り込み失敗 (' + file.name + '): ' + err.message);
             return false;
         }
     });
@@ -592,7 +594,6 @@ async function loadServerTracks() {
  */
 async function refreshTracksList() {
     try {
-        const isServerOnline = await checkLocalServer();
         const allLocalTracks = await window.RuggedDB.getAllTracks();
         const serverTracks = await loadServerTracks();
         const allTracks = [...serverTracks, ...allLocalTracks];
